@@ -8,4 +8,9 @@ export default defineConfig({
       'irontide-wasm': resolve(__dirname, '../../crates/irontide-core/pkg/irontide_core.js'),
     },
   },
+  server: {
+    fs: {
+      allow: [resolve(__dirname, '../..')],
+    },
+  },
 })
