@@ -24,6 +24,7 @@ const DEFAULT_OPTIONS = {
   interact: true,
   momentum: true,
   momentumDeceleration: 0.95,
+  onLoading: undefined as WaveformOptions['onLoading'],
 }
 
 export class Waveform {
@@ -37,23 +38,10 @@ export class Waveform {
 
   private _currentTime = 0
   private _duration = 0
-  private _zoom = 1
-  private _scrollPosition = 0 // 0-1, fraction of total duration at left edge
-  private options: Required<
-    Pick<
-      WaveformOptions,
-      | 'decoder'
-      | 'height'
-      | 'waveColor'
-      | 'progressColor'
-      | 'barWidth'
-      | 'barGap'
-      | 'interact'
-      | 'momentum'
-      | 'momentumDeceleration'
-    >
-  > &
-    WaveformOptions
+  private _pixelsPerSecond = 0 // 0 = fit to width
+  private _scrollPosition = 0 // 0-1
+  private readonly minZoom = 1
+  private readonly maxZoom = 1000
 
   private constructor(
     container: HTMLElement,
@@ -61,14 +49,14 @@ export class Waveform {
     renderer: Renderer,
     interaction: InteractionManager,
     audioData: AudioData,
-    options: Waveform['options']
+    emitter: EventEmitter,
   ) {
     this.container = container
     this.canvas = canvas
     this.renderer = renderer
     this.interaction = interaction
     this.audioData = audioData
-    this.options = options
+    this.emitter = emitter
     this._duration = audioData.duration
 
     this.wireInteraction()
@@ -76,10 +64,6 @@ export class Waveform {
     this.render()
   }
 
-  /**
-   * Async factory: resolves container, initializes WASM, loads audio,
-   * creates all components, and returns a ready Waveform instance.
-   */
   static async create(userOptions: WaveformOptions): Promise<Waveform> {
     const options = { ...DEFAULT_OPTIONS, ...userOptions }
 
@@ -102,10 +86,9 @@ export class Waveform {
     container.appendChild(canvas)
 
     try {
-      // Create EventEmitter for progress/error reporting
+      // Create emitter early so loading events can be routed
       const emitter = new EventEmitter()
 
-      // Create renderer
       const renderer = new Renderer(canvas, {
         height: options.height,
         waveColor: options.waveColor,
@@ -114,58 +97,55 @@ export class Waveform {
         barGap: options.barGap,
       })
 
-      // Create interaction manager
+      // Initial resize
+      const rect = container.getBoundingClientRect()
+      if (rect.width > 0) {
+        renderer.resize(rect.width)
+      }
+
       const interaction = new InteractionManager(canvas, {
         interact: options.interact,
         momentum: options.momentum,
         momentumDeceleration: options.momentumDeceleration,
       })
 
-      // Load audio
+      // Load audio — route progress to both the onLoading callback and event emitter
       const { audioData } = await loadAudio(
         options.src,
         options.decoder,
         (progress: number, stage: LoadingStage) => {
+          options.onLoading?.(progress, stage)
           emitter.emit('loading', { progress, stage })
         },
         (message: string) => {
           emitter.emit('warning', message)
-        }
+        },
       )
 
       const instance = new Waveform(
-        container,
-        canvas,
-        renderer,
-        interaction,
-        audioData,
-        options
+        container, canvas, renderer, interaction, audioData, emitter,
       )
 
-      // Transfer any pre-create listeners
-      instance.emitter = emitter
-      instance.emitter.emit('ready', undefined)
-
+      emitter.emit('ready', undefined)
       return instance
     } catch (error) {
-      // Cleanup on failure
       container.removeChild(canvas)
       throw error
     }
   }
 
-  // --- Public event API ---
+  // --- Events ---
 
   on<K extends keyof WaveformEvents>(
     event: K,
-    handler: (data: WaveformEvents[K]) => void
+    handler: (data: WaveformEvents[K]) => void,
   ): void {
     this.emitter.on(event as string, handler as any)
   }
 
   off<K extends keyof WaveformEvents>(
     event: K,
-    handler: (data: WaveformEvents[K]) => void
+    handler: (data: WaveformEvents[K]) => void,
   ): void {
     this.emitter.off(event as string, handler as any)
   }
@@ -186,26 +166,42 @@ export class Waveform {
     return this._duration
   }
 
-  zoom(level: number): void {
-    this._zoom = Math.max(1, level)
+  /**
+   * Set zoom level in pixels per second.
+   * Use 0 to fit the entire waveform to the container width.
+   */
+  zoom(pixelsPerSecond: number): void {
+    if (pixelsPerSecond === 0) {
+      this._pixelsPerSecond = 0
+      this._scrollPosition = 0
+    } else {
+      this._pixelsPerSecond = Math.max(this.minZoom, Math.min(this.maxZoom, pixelsPerSecond))
+    }
     this.render()
   }
 
   getZoom(): number {
-    return this._zoom
+    return this._pixelsPerSecond
   }
 
-  zoomIn(factor = 1.5): void {
-    this.zoom(this._zoom * factor)
+  zoomIn(factor = 2): void {
+    this.zoom(this.getEffectivePxPerSec() * factor)
   }
 
-  zoomOut(factor = 1.5): void {
-    this.zoom(this._zoom / factor)
+  zoomOut(factor = 2): void {
+    this.zoom(this.getEffectivePxPerSec() / factor)
   }
 
   scrollToTime(time: number): void {
-    if (this._duration <= 0) return
-    this._scrollPosition = Math.max(0, Math.min(1, time / this._duration))
+    const totalWidth = this.getTotalWidth()
+    const canvasWidth = this.canvas.clientWidth
+    if (totalWidth <= canvasWidth) return
+
+    const pxPerSec = this.getEffectivePxPerSec()
+    const maxScroll = totalWidth - canvasWidth
+    let offset = time * pxPerSec - canvasWidth / 2
+    offset = Math.max(0, Math.min(maxScroll, offset))
+    this._scrollPosition = offset / maxScroll
     this.render()
     this.emitter.emit('scroll', this._scrollPosition)
   }
@@ -225,60 +221,87 @@ export class Waveform {
   }
 
   destroy(): void {
-    // Disconnect resize observer
     if (this.resizeObserver) {
       this.resizeObserver.disconnect()
       this.resizeObserver = null
     }
-
-    // Destroy interaction manager
     this.interaction.destroy()
-
-    // Destroy renderer
     this.renderer.destroy()
-
-    // Remove canvas
     if (this.canvas.parentElement) {
       this.canvas.parentElement.removeChild(this.canvas)
     }
-
-    // Remove all event listeners
     this.emitter.removeAll()
-
-    // Free WASM AudioData
     if (this.audioData && typeof this.audioData.free === 'function') {
       this.audioData.free()
     }
   }
 
-  // --- Internal methods ---
+  // --- Internal ---
+
+  private getEffectivePxPerSec(): number {
+    if (this._pixelsPerSecond > 0) return this._pixelsPerSecond
+    const canvasWidth = this.canvas.clientWidth
+    return canvasWidth / this._duration
+  }
+
+  private getTotalWidth(): number {
+    return this._duration * this.getEffectivePxPerSec()
+  }
+
+  private getScrollOffset(): number {
+    const totalWidth = this.getTotalWidth()
+    const canvasWidth = this.canvas.clientWidth
+    if (totalWidth <= canvasWidth) return 0
+    return this._scrollPosition * (totalWidth - canvasWidth)
+  }
+
+  private getVisibleTimeRange(): { start: number; end: number } {
+    const scrollOffset = this.getScrollOffset()
+    const canvasWidth = this.canvas.clientWidth
+    const pxPerSec = this.getEffectivePxPerSec()
+    return {
+      start: Math.max(0, scrollOffset / pxPerSec),
+      end: Math.min(this._duration, (scrollOffset + canvasWidth) / pxPerSec),
+    }
+  }
 
   private wireInteraction(): void {
     this.interaction.on('seek', (data: { ratio: number }) => {
       const { start, end } = this.getVisibleTimeRange()
-      const visibleDuration = end - start
-      const time = start + data.ratio * visibleDuration
+      const time = start + data.ratio * (end - start)
       this._currentTime = Math.max(0, Math.min(this._duration, time))
       this.render()
       this.emitter.emit('seek', this._currentTime)
     })
 
     this.interaction.on('scroll', (data: { deltaPixels: number }) => {
+      const totalWidth = this.getTotalWidth()
       const canvasWidth = this.canvas.clientWidth
-      if (canvasWidth <= 0 || this._duration <= 0) return
+      if (totalWidth <= canvasWidth) return
 
-      const totalWidth = canvasWidth * this._zoom
-      const scrollDelta = data.deltaPixels / totalWidth
-      this._scrollPosition = Math.max(
-        0,
-        Math.min(1, this._scrollPosition - scrollDelta)
-      )
+      const maxScroll = totalWidth - canvasWidth
+      const currentOffset = this.getScrollOffset()
+      const newOffset = Math.max(0, Math.min(maxScroll, currentOffset + data.deltaPixels))
+      this._scrollPosition = newOffset / maxScroll
+      this.render()
+      this.emitter.emit('scroll', this._scrollPosition)
+    })
+
+    this.interaction.on('wheel', (data: { deltaPixels: number }) => {
+      const totalWidth = this.getTotalWidth()
+      const canvasWidth = this.canvas.clientWidth
+      if (totalWidth <= canvasWidth) return
+
+      const maxScroll = totalWidth - canvasWidth
+      const currentOffset = this.getScrollOffset()
+      const newOffset = Math.max(0, Math.min(maxScroll, currentOffset + data.deltaPixels))
+      this._scrollPosition = newOffset / maxScroll
       this.render()
       this.emitter.emit('scroll', this._scrollPosition)
     })
 
     this.interaction.on('zoom', (data: { scale: number }) => {
-      this.zoom(this._zoom * data.scale)
+      this.zoom(this.getEffectivePxPerSec() * data.scale)
     })
   }
 
@@ -295,26 +318,11 @@ export class Waveform {
     this.resizeObserver.observe(this.container)
   }
 
-  private getVisibleTimeRange(): { start: number; end: number } {
-    const visibleFraction = 1 / this._zoom
-    const start = this._scrollPosition * this._duration
-    const end = Math.min(
-      this._duration,
-      start + visibleFraction * this._duration
-    )
-    return { start, end }
-  }
-
   private autoScrollToPlayhead(): void {
     const { start, end } = this.getVisibleTimeRange()
-    if (this._currentTime < start || this._currentTime > end) {
-      // Scroll so playhead is at 25% from left
-      const visibleDuration = end - start
-      const targetStart = this._currentTime - visibleDuration * 0.25
-      this._scrollPosition = Math.max(
-        0,
-        Math.min(1, targetStart / this._duration)
-      )
+    const buffer = (end - start) * 0.1
+    if (this._currentTime < start + buffer || this._currentTime > end - buffer) {
+      this.scrollToTime(this._currentTime)
     }
   }
 
@@ -324,28 +332,19 @@ export class Waveform {
 
     const { start, end } = this.getVisibleTimeRange()
     const sampleRate = this.audioData.sample_rate
-    const channels = this.audioData.channels
-    const startSample = Math.floor(start * sampleRate * channels)
-    const endSample = Math.min(
-      this.audioData.len,
-      Math.ceil(end * sampleRate * channels)
-    )
 
-    const { totalBarWidth } = this.renderer.calculateBarDimensions(
-      canvasWidth,
-      canvasWidth * this._zoom
-    )
+    // Sample indices are into the mono mix (not interleaved)
+    const startSample = Math.floor(start * sampleRate)
+    const endSample = Math.min(this.audioData.len, Math.ceil(end * sampleRate))
+
+    const totalWidth = this.getTotalWidth()
+    const { totalBarWidth } = this.renderer.calculateBarDimensions(canvasWidth, totalWidth)
     const numBars = Math.floor(canvasWidth / totalBarWidth)
 
     if (numBars <= 0 || endSample <= startSample) return
 
     const peaks = this.audioData.calculatePeaks(numBars, startSample, endSample)
 
-    this.renderer.render(
-      peaks,
-      { start, end },
-      this._currentTime,
-      this._duration
-    )
+    this.renderer.render(peaks, { start, end }, this._currentTime, this._duration)
   }
 }

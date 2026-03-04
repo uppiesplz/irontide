@@ -364,6 +364,11 @@
         waveform = null
       }
 
+      // Revoke previous blob URL if any
+      if (audioSrc && audioSrc.startsWith('blob:')) {
+        URL.revokeObjectURL(audioSrc)
+      }
+
       // Determine source
       const file = fileInput.files?.[0]
       let src
@@ -395,12 +400,10 @@
           progressColor: '#e1b728',
           interact: true,
           momentum: true,
-        })
-
-        // Wire events
-        waveform.on('loading', ({ progress, stage }) => {
-          showProgress(progress)
-          statusEl.textContent = `${stage}... ${Math.round(progress)}%`
+          onLoading(progress, stage) {
+            showProgress(progress)
+            statusEl.textContent = `${stage}... ${Math.round(progress)}%`
+          },
         })
 
         waveform.on('seek', (time) => {
@@ -480,18 +483,9 @@
 
         const zoomValue = btn.dataset.zoom
         if (zoomValue === 'fit') {
-          waveform.zoom(1)
+          waveform.zoom(0)
         } else {
-          // pixelsPerSecond: the waveform container width divided by duration gives 1x zoom.
-          // To get N px/s, zoom = (N * duration) / containerWidth
-          const container = document.getElementById('waveform')
-          const containerWidth = container.clientWidth
-          const duration = waveform.getDuration()
-          if (duration > 0 && containerWidth > 0) {
-            const pxPerSec = parseInt(zoomValue, 10)
-            const zoomLevel = (pxPerSec * duration) / containerWidth
-            waveform.zoom(Math.max(1, zoomLevel))
-          }
+          waveform.zoom(parseInt(zoomValue, 10))
         }
       })
     })

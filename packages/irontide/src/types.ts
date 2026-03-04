@@ -13,6 +13,8 @@ export interface WaveformOptions {
   interact?: boolean
   momentum?: boolean
   momentumDeceleration?: number
+  /** Called during loading (before create() resolves). Use for progress UI. */
+  onLoading?: (progress: number, stage: LoadingStage) => void
 }
 
 export interface WaveformEvents {
