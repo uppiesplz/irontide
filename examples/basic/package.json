@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "dev": "npx vite"
+  },
+  "devDependencies": {
+    "vite": "^6.2"
+  }
+}

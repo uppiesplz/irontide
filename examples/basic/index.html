@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IronTide Demo</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #1a1a1a;
+      color: #ccc;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 2rem;
+      min-height: 100vh;
+    }
+
+    h1 {
+      color: #e1b728;
+      font-size: 1.8rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: #999;
+    }
+
+    input[type="text"],
+    input[type="file"],
+    select {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      color: #ccc;
+      padding: 0.4rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    input[type="text"] {
+      width: 320px;
+    }
+
+    input[type="file"] {
+      padding: 0.3rem;
+    }
+
+    select {
+      cursor: pointer;
+    }
+
+    button {
+      background: #e1b728;
+      color: #1a1a1a;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: opacity 0.15s;
+    }
+
+    button:hover {
+      opacity: 0.85;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    button.secondary {
+      background: #333;
+      color: #ccc;
+      border: 1px solid #555;
+    }
+
+    button.secondary:hover {
+      background: #444;
+    }
+
+    button.secondary.active {
+      background: #e1b728;
+      color: #1a1a1a;
+      border-color: #e1b728;
+    }
+
+    #waveform {
+      background: #222;
+      border: 1px solid #333;
+      border-radius: 6px;
+      margin: 1rem 0;
+      min-height: 128px;
+      overflow: hidden;
+    }
+
+    .transport {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    #time-display {
+      font-family: 'Courier New', monospace;
+      font-size: 0.95rem;
+      color: #e1b728;
+      min-width: 130px;
+    }
+
+    #seek-slider {
+      flex: 1;
+      accent-color: #e1b728;
+    }
+
+    .zoom-controls {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .zoom-controls span {
+      font-size: 0.85rem;
+      color: #999;
+      margin-right: 0.5rem;
+      align-self: center;
+    }
+
+    .progress-container {
+      background: #2a2a2a;
+      border-radius: 4px;
+      height: 6px;
+      margin-bottom: 0.75rem;
+      overflow: hidden;
+      display: none;
+    }
+
+    .progress-container.visible {
+      display: block;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: #e1b728;
+      width: 0%;
+      transition: width 0.15s ease;
+    }
+
+    #status {
+      font-size: 0.85rem;
+      color: #888;
+      margin-bottom: 0.5rem;
+    }
+
+    #error {
+      background: #3a1a1a;
+      border: 1px solid #6a2a2a;
+      color: #e88;
+      padding: 0.75rem 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      display: none;
+      font-size: 0.9rem;
+    }
+
+    #error.visible {
+      display: block;
+    }
+
+    .tips {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: #222;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      color: #777;
+      line-height: 1.6;
+    }
+
+    .tips strong {
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <h1>IronTide Waveform Demo</h1>
+
+  <div class="controls">
+    <div>
+      <label for="url-input">Audio URL:</label><br />
+      <input type="text" id="url-input" value="https://upload.wikimedia.org/wikipedia/commons/b/bb/Test_oridge.ogg" />
+    </div>
+    <div>
+      <label for="file-input">or File:</label><br />
+      <input type="file" id="file-input" accept="audio/*" />
+    </div>
+    <div>
+      <label for="decoder-select">Decoder:</label><br />
+      <select id="decoder-select">
+        <option value="auto">Auto</option>
+        <option value="wasm">WASM</option>
+        <option value="web">Web Audio</option>
+      </select>
+    </div>
+    <div style="align-self: flex-end;">
+      <button id="load-btn">Load</button>
+    </div>
+  </div>
+
+  <div id="error"></div>
+
+  <div class="progress-container" id="progress-container">
+    <div class="progress-bar" id="progress-bar"></div>
+  </div>
+
+  <div id="status">Ready. Enter an audio URL or pick a file and click Load.</div>
+
+  <div id="waveform"></div>
+
+  <div class="transport">
+    <button id="play-btn" disabled>Play</button>
+    <span id="time-display">00:00 / 00:00</span>
+    <input type="range" id="seek-slider" min="0" max="1000" value="0" step="1" disabled />
+  </div>
+
+  <div class="zoom-controls">
+    <span>Zoom:</span>
+    <button class="secondary active" data-zoom="fit">Fit</button>
+    <button class="secondary" data-zoom="400">400px/s</button>
+    <button class="secondary" data-zoom="200">200px/s</button>
+    <button class="secondary" data-zoom="100">100px/s</button>
+    <button class="secondary" data-zoom="50">50px/s</button>
+    <button class="secondary" data-zoom="20">20px/s</button>
+  </div>
+
+  <div class="tips">
+    <strong>Navigation:</strong> Click the waveform to seek. Drag to scroll when zoomed in.
+    Momentum scrolling is enabled. Use zoom buttons to change the time scale.
+  </div>
+
+  <script type="module">
+    import { Waveform, initIrontide } from 'irontide'
+
+    // DOM elements
+    const urlInput = document.getElementById('url-input')
+    const fileInput = document.getElementById('file-input')
+    const decoderSelect = document.getElementById('decoder-select')
+    const loadBtn = document.getElementById('load-btn')
+    const playBtn = document.getElementById('play-btn')
+    const seekSlider = document.getElementById('seek-slider')
+    const timeDisplay = document.getElementById('time-display')
+    const statusEl = document.getElementById('status')
+    const errorEl = document.getElementById('error')
+    const progressContainer = document.getElementById('progress-container')
+    const progressBar = document.getElementById('progress-bar')
+    const zoomButtons = document.querySelectorAll('[data-zoom]')
+
+    let waveform = null
+    let audioElement = null
+    let animFrameId = null
+    let isPlaying = false
+    let audioSrc = null
+
+    // Initialize WASM eagerly
+    statusEl.textContent = 'Initializing WASM...'
+    try {
+      await initIrontide()
+      statusEl.textContent = 'WASM ready. Enter an audio URL or pick a file and click Load.'
+    } catch (e) {
+      statusEl.textContent = 'WASM unavailable, Web Audio decoder will be used.'
+      console.warn('WASM init failed:', e)
+    }
+
+    // Helpers
+    function formatTime(seconds) {
+      if (!isFinite(seconds) || seconds < 0) seconds = 0
+      const m = Math.floor(seconds / 60)
+      const s = Math.floor(seconds % 60)
+      return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0')
+    }
+
+    function showError(msg) {
+      errorEl.textContent = msg
+      errorEl.classList.add('visible')
+    }
+
+    function hideError() {
+      errorEl.classList.remove('visible')
+    }
+
+    function showProgress(pct) {
+      progressContainer.classList.add('visible')
+      progressBar.style.width = pct + '%'
+    }
+
+    function hideProgress() {
+      progressContainer.classList.remove('visible')
+      progressBar.style.width = '0%'
+    }
+
+    function setControlsEnabled(enabled) {
+      playBtn.disabled = !enabled
+      seekSlider.disabled = !enabled
+    }
+
+    function stopPlayback() {
+      if (animFrameId) {
+        cancelAnimationFrame(animFrameId)
+        animFrameId = null
+      }
+      if (audioElement) {
+        audioElement.pause()
+        audioElement.src = ''
+        audioElement = null
+      }
+      isPlaying = false
+      playBtn.textContent = 'Play'
+    }
+
+    function updateTimeDisplay() {
+      if (!waveform) return
+      const cur = waveform.getCurrentTime()
+      const dur = waveform.getDuration()
+      timeDisplay.textContent = formatTime(cur) + ' / ' + formatTime(dur)
+    }
+
+    // Animation loop: sync audio position to waveform
+    function animate() {
+      if (audioElement && !audioElement.paused) {
+        waveform.setCurrentTime(audioElement.currentTime)
+        updateTimeDisplay()
+        if (!seekSlider.matches(':active')) {
+          seekSlider.value = String(
+            Math.round((audioElement.currentTime / waveform.getDuration()) * 1000)
+          )
+        }
+      }
+      animFrameId = requestAnimationFrame(animate)
+    }
+
+    // Load audio
+    async function loadAudio() {
+      hideError()
+      setControlsEnabled(false)
+      stopPlayback()
+
+      // Destroy previous waveform
+      if (waveform) {
+        waveform.destroy()
+        waveform = null
+      }
+
+      // Determine source
+      const file = fileInput.files?.[0]
+      let src
+      if (file) {
+        src = URL.createObjectURL(file)
+        audioSrc = src
+      } else {
+        src = urlInput.value.trim()
+        audioSrc = src
+        if (!src) {
+          showError('Please enter an audio URL or select a file.')
+          return
+        }
+      }
+
+      const decoder = decoderSelect.value
+
+      loadBtn.disabled = true
+      statusEl.textContent = 'Loading...'
+      showProgress(0)
+
+      try {
+        waveform = await Waveform.create({
+          container: '#waveform',
+          src,
+          decoder,
+          height: 128,
+          waveColor: '#464340',
+          progressColor: '#e1b728',
+          interact: true,
+          momentum: true,
+        })
+
+        // Wire events
+        waveform.on('loading', ({ progress, stage }) => {
+          showProgress(progress)
+          statusEl.textContent = `${stage}... ${Math.round(progress)}%`
+        })
+
+        waveform.on('seek', (time) => {
+          if (audioElement) {
+            audioElement.currentTime = time
+          }
+          updateTimeDisplay()
+          seekSlider.value = String(
+            Math.round((time / waveform.getDuration()) * 1000)
+          )
+        })
+
+        waveform.on('warning', (msg) => {
+          console.warn('IronTide warning:', msg)
+        })
+
+        hideProgress()
+        statusEl.textContent = `Loaded. Duration: ${formatTime(waveform.getDuration())}`
+        setControlsEnabled(true)
+        updateTimeDisplay()
+
+        // Create audio element for playback
+        audioElement = new Audio()
+        audioElement.src = audioSrc
+        audioElement.addEventListener('ended', () => {
+          isPlaying = false
+          playBtn.textContent = 'Play'
+        })
+
+        // Start animation loop
+        animFrameId = requestAnimationFrame(animate)
+      } catch (err) {
+        hideProgress()
+        showError(err.message || String(err))
+        statusEl.textContent = 'Load failed.'
+        console.error('IronTide load error:', err)
+      } finally {
+        loadBtn.disabled = false
+      }
+    }
+
+    // Event listeners
+    loadBtn.addEventListener('click', loadAudio)
+
+    playBtn.addEventListener('click', () => {
+      if (!audioElement || !waveform) return
+      if (isPlaying) {
+        audioElement.pause()
+        isPlaying = false
+        playBtn.textContent = 'Play'
+      } else {
+        audioElement.play().catch((e) => showError('Playback error: ' + e.message))
+        isPlaying = true
+        playBtn.textContent = 'Pause'
+      }
+    })
+
+    seekSlider.addEventListener('input', () => {
+      if (!waveform) return
+      const ratio = parseInt(seekSlider.value, 10) / 1000
+      const time = ratio * waveform.getDuration()
+      waveform.setCurrentTime(time)
+      if (audioElement) {
+        audioElement.currentTime = time
+      }
+      updateTimeDisplay()
+    })
+
+    // Zoom controls
+    zoomButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!waveform) return
+
+        // Update active state
+        zoomButtons.forEach((b) => b.classList.remove('active'))
+        btn.classList.add('active')
+
+        const zoomValue = btn.dataset.zoom
+        if (zoomValue === 'fit') {
+          waveform.zoom(1)
+        } else {
+          // pixelsPerSecond: the waveform container width divided by duration gives 1x zoom.
+          // To get N px/s, zoom = (N * duration) / containerWidth
+          const container = document.getElementById('waveform')
+          const containerWidth = container.clientWidth
+          const duration = waveform.getDuration()
+          if (duration > 0 && containerWidth > 0) {
+            const pxPerSec = parseInt(zoomValue, 10)
+            const zoomLevel = (pxPerSec * duration) / containerWidth
+            waveform.zoom(Math.max(1, zoomLevel))
+          }
+        }
+      })
+    })
+
+    // Clear file input when URL is edited
+    urlInput.addEventListener('input', () => {
+      fileInput.value = ''
+    })
+
+    // Clear URL when file is selected
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files?.length) {
+        urlInput.value = ''
+      }
+    })
+  </script>
+</body>
+</html>
