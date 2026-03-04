@@ -1,0 +1,17 @@
+{
+  "name": "irontide",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.7",
+    "vite": "^6.2",
+    "vitest": "^3.0",
+    "happy-dom": "^17.0"
+  }
+}
