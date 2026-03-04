@@ -38,6 +38,9 @@ export class Renderer {
   }
 
   resize(width: number): void {
+    if (width <= 0) return
+    // Read DPR fresh each resize (handles window moving between displays)
+    this.dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
     const { height } = this.options
     this.canvas.width = Math.round(width * this.dpr)
     this.canvas.height = Math.round(height * this.dpr)

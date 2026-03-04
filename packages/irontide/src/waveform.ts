@@ -287,19 +287,6 @@ export class Waveform {
       this.emitter.emit('scroll', this._scrollPosition)
     })
 
-    this.interaction.on('wheel', (data: { deltaPixels: number }) => {
-      const totalWidth = this.getTotalWidth()
-      const canvasWidth = this.canvas.clientWidth
-      if (totalWidth <= canvasWidth) return
-
-      const maxScroll = totalWidth - canvasWidth
-      const currentOffset = this.getScrollOffset()
-      const newOffset = Math.max(0, Math.min(maxScroll, currentOffset + data.deltaPixels))
-      this._scrollPosition = newOffset / maxScroll
-      this.render()
-      this.emitter.emit('scroll', this._scrollPosition)
-    })
-
     this.interaction.on('zoom', (data: { scale: number }) => {
       this.zoom(this.getEffectivePxPerSec() * data.scale)
     })

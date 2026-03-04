@@ -146,7 +146,8 @@ export class InteractionManager {
 
       this.lastMoveX = e.clientX
       this.lastMoveTime = now
-      this.emitter.emit('scroll', { deltaPixels })
+      // Negate: drag right = scroll left (grab-and-drag behavior)
+      this.emitter.emit('scroll', { deltaPixels: -deltaPixels })
     })
   }
 
@@ -166,7 +167,7 @@ export class InteractionManager {
 
   private handleWheel(e: WheelEvent): void {
     e.preventDefault()
-    this.emitter.emit('scroll', { deltaPixels: -e.deltaX || -e.deltaY })
+    this.emitter.emit('scroll', { deltaPixels: e.deltaX || e.deltaY })
   }
 
   private handleTouchStart(e: TouchEvent): void {
@@ -226,7 +227,8 @@ export class InteractionManager {
 
         this.lastMoveX = e.touches[1].clientX
         this.lastMoveTime = now
-        this.emitter.emit('scroll', { deltaPixels })
+        // Negate: drag right = scroll left (grab-and-drag behavior)
+        this.emitter.emit('scroll', { deltaPixels: -deltaPixels })
       }
     })
   }
@@ -266,7 +268,8 @@ export class InteractionManager {
         return
       }
 
-      const deltaPixels = this.velocity * deltaTime
+      // Negate velocity for consistent grab-and-drag direction
+      const deltaPixels = -this.velocity * deltaTime
       this.emitter.emit('scroll', { deltaPixels })
       this.momentumRafId = requestAnimationFrame(step)
     }
