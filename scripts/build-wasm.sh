@@ -1,2 +1,4 @@
 #!/usr/bin/env bash
-cd crates/irontide-core && wasm-pack build --target web --release
+set -euo pipefail
+cd "$(dirname "$0")/../crates/irontide-core"
+wasm-pack build --target web --release
