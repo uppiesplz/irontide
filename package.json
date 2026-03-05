@@ -1,0 +1,17 @@
+{
+  "name": "irontide",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "packages/irontide/dist/index.js",
+  "module": "packages/irontide/dist/index.js",
+  "types": "packages/irontide/dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./packages/irontide/dist/index.js",
+      "types": "./packages/irontide/dist/index.d.ts"
+    }
+  },
+  "files": [
+    "packages/irontide/dist"
+  ]
+}
