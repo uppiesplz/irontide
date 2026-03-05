@@ -1,6 +1,5 @@
 node_modules/
 dist/
+!packages/irontide/dist/
 target/
-crates/irontide-core/pkg/
-*.wasm
 .vite/

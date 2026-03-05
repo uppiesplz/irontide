@@ -1,0 +1,15 @@
+{
+  "name": "irontide-core",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "irontide_core_bg.wasm",
+    "irontide_core.js",
+    "irontide_core.d.ts"
+  ],
+  "main": "irontide_core.js",
+  "types": "irontide_core.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
