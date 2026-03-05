@@ -2,7 +2,7 @@ import { EventEmitter } from './events'
 import { Renderer } from './renderer'
 import { InteractionManager } from './interaction'
 import { initIrontide, loadAudio } from './loader'
-import type { WaveformOptions, WaveformEvents, LoadingStage } from './types'
+import type { WaveformOptions, WaveformEvents, LoadingStage, DecoderType } from './types'
 
 // WASM AudioData type (imported dynamically)
 interface AudioData {
@@ -42,6 +42,7 @@ export class Waveform {
   private _scrollPosition = 0 // 0-1
   private readonly minZoom = 1
   private readonly maxZoom = 1000
+  private _decoder: DecoderType = 'auto'
 
   private constructor(
     container: HTMLElement,
@@ -50,6 +51,7 @@ export class Waveform {
     interaction: InteractionManager,
     audioData: AudioData,
     emitter: EventEmitter,
+    decoder: DecoderType,
   ) {
     this.container = container
     this.canvas = canvas
@@ -58,6 +60,7 @@ export class Waveform {
     this.audioData = audioData
     this.emitter = emitter
     this._duration = audioData.duration
+    this._decoder = decoder
 
     this.wireInteraction()
     this.setupResizeHandling()
@@ -123,7 +126,7 @@ export class Waveform {
       )
 
       const instance = new Waveform(
-        container, canvas, renderer, interaction, audioData, emitter,
+        container, canvas, renderer, interaction, audioData, emitter, options.decoder,
       )
 
       emitter.emit('ready', undefined)
@@ -218,6 +221,33 @@ export class Waveform {
 
   setInteraction(enabled: boolean): void {
     this.interaction.setInteraction(enabled)
+  }
+
+  async load(src: string): Promise<void> {
+    // Free old WASM AudioData
+    if (this.audioData && typeof this.audioData.free === 'function') {
+      this.audioData.free()
+    }
+
+    const { audioData } = await loadAudio(
+      src,
+      this._decoder,
+      (progress: number, stage: LoadingStage) => {
+        this.emitter.emit('loading', { progress, stage })
+      },
+      (message: string) => {
+        this.emitter.emit('warning', message)
+      },
+    )
+
+    this.audioData = audioData
+    this._duration = audioData.duration
+    this._currentTime = 0
+    this._scrollPosition = 0
+    this._pixelsPerSecond = 0
+
+    this.render()
+    this.emitter.emit('ready', undefined)
   }
 
   destroy(): void {
