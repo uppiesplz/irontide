@@ -215,6 +215,24 @@ export class Waveform {
     this.emitter.emit('scroll', this._scrollPosition)
   }
 
+  /**
+   * Set scroll offset in pixels (bypasses 0-1 normalization).
+   * Use this when syncing to an external scroll container's scrollLeft.
+   */
+  setScrollOffset(offsetPixels: number): void {
+    const totalWidth = this.getTotalWidth()
+    const canvasWidth = this.canvas.clientWidth
+    if (totalWidth <= canvasWidth) {
+      this._scrollPosition = 0
+      this.render()
+      return
+    }
+    const maxScroll = totalWidth - canvasWidth
+    this._scrollPosition = Math.max(0, Math.min(1, offsetPixels / maxScroll))
+    this.render()
+    this.emitter.emit('scroll', this._scrollPosition)
+  }
+
   getScrollPosition(): number {
     return this._scrollPosition
   }
