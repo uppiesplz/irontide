@@ -157,7 +157,6 @@ export class Waveform {
 
   setCurrentTime(time: number): void {
     this._currentTime = Math.max(0, Math.min(this._duration, time))
-    this.autoScrollToPlayhead()
     this.render()
   }
 
@@ -351,14 +350,6 @@ export class Waveform {
       }
     })
     this.resizeObserver.observe(this.container)
-  }
-
-  private autoScrollToPlayhead(): void {
-    const { start, end } = this.getVisibleTimeRange()
-    const buffer = (end - start) * 0.1
-    if (this._currentTime < start + buffer || this._currentTime > end - buffer) {
-      this.scrollToTime(this._currentTime)
-    }
   }
 
   private render(): void {
