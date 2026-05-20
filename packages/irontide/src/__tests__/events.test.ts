@@ -45,4 +45,24 @@ describe('EventEmitter', () => {
     emitter.emit('b', null)
     expect(handler).not.toHaveBeenCalled()
   })
+
+  it('isolates errors from individual handlers', () => {
+    const emitter = new EventEmitter()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const before = vi.fn()
+    const throwing = vi.fn(() => { throw new Error('handler error') })
+    const after = vi.fn()
+
+    emitter.on('test', before)
+    emitter.on('test', throwing)
+    emitter.on('test', after)
+
+    expect(() => emitter.emit('test', 'data')).not.toThrow()
+    expect(before).toHaveBeenCalledWith('data')
+    expect(throwing).toHaveBeenCalled()
+    expect(after).toHaveBeenCalledWith('data')
+    expect(errorSpy).toHaveBeenCalled()
+
+    errorSpy.mockRestore()
+  })
 })

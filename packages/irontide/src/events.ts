@@ -15,7 +15,13 @@ export class EventEmitter {
   }
 
   emit(event: string, data: any): void {
-    this.listeners.get(event)?.forEach((handler) => handler(data))
+    this.listeners.get(event)?.forEach((handler) => {
+      try {
+        handler(data)
+      } catch (error) {
+        console.error(`[irontide] handler for "${event}" threw:`, error)
+      }
+    })
   }
 
   removeAll(): void {
