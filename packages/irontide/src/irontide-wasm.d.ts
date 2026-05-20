@@ -1,7 +1,7 @@
 declare module 'irontide-wasm' {
   export class AudioData {
     free(): void
-    calculatePeaks(pixels: number, start_sample: number, end_sample: number): Float32Array
+    calculatePeaksInto(pixels: number, start_sample: number, end_sample: number, out: Float32Array): void
     constructor(samples: Float32Array, sample_rate: number, channels: number)
     readonly channels: number
     readonly duration: number

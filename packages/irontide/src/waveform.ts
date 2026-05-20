@@ -6,7 +6,7 @@ import type { WaveformOptions, WaveformEvents, LoadingStage, DecoderType } from 
 
 // WASM AudioData type (imported dynamically)
 interface AudioData {
-  calculatePeaks(pixels: number, startSample: number, endSample: number): Float32Array
+  calculatePeaksInto(pixels: number, startSample: number, endSample: number, out: Float32Array): void
   readonly duration: number
   readonly sample_rate: number
   readonly len: number
@@ -43,6 +43,8 @@ export class Waveform {
   private readonly minZoom = 1
   private readonly maxZoom = 1000
   private _decoder: DecoderType = 'auto'
+  // Reused across renders; resized only when bar count changes.
+  private peaksBuffer: Float32Array | null = null
 
   private constructor(
     container: HTMLElement,
@@ -386,8 +388,12 @@ export class Waveform {
 
     if (numBars <= 0 || endSample <= startSample) return
 
-    const peaks = this.audioData.calculatePeaks(numBars, startSample, endSample)
+    const required = numBars * 2
+    if (!this.peaksBuffer || this.peaksBuffer.length !== required) {
+      this.peaksBuffer = new Float32Array(required)
+    }
+    this.audioData.calculatePeaksInto(numBars, startSample, endSample, this.peaksBuffer)
 
-    this.renderer.render(peaks, { start, end }, this._currentTime, this._duration)
+    this.renderer.render(this.peaksBuffer, { start, end }, this._currentTime, this._duration)
   }
 }

@@ -19,18 +19,19 @@ export class AudioData {
         wasm.__wbg_audiodata_free(ptr, 0);
     }
     /**
-     * Calculate peaks for waveform rendering.
-     * Returns flat [min0, max0, min1, max1, ...] array.
+     * Calculate peaks for waveform rendering into a caller-owned buffer.
+     * Writes flat [min0, max0, min1, max1, ...] into `out`. Callers reuse the
+     * same Float32Array across renders to avoid per-call allocation.
+     * Processes `min(pixels, out.len() / 2)` pixels.
      * @param {number} pixels
      * @param {number} start_sample
      * @param {number} end_sample
-     * @returns {Float32Array}
+     * @param {Float32Array} out
      */
-    calculatePeaks(pixels, start_sample, end_sample) {
-        const ret = wasm.audiodata_calculatePeaks(this.__wbg_ptr, pixels, start_sample, end_sample);
-        var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
-        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
-        return v1;
+    calculatePeaksInto(pixels, start_sample, end_sample, out) {
+        var ptr0 = passArrayF32ToWasm0(out, wasm.__wbindgen_malloc);
+        var len0 = WASM_VECTOR_LEN;
+        wasm.audiodata_calculatePeaksInto(this.__wbg_ptr, pixels, start_sample, end_sample, ptr0, len0, out);
     }
     /**
      * @returns {number}
@@ -105,6 +106,9 @@ export function init_irontide() {
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
+        __wbg___wbindgen_copy_to_typed_array_d2f20acdab8e0740: function(arg0, arg1, arg2) {
+            new Uint8Array(arg2.buffer, arg2.byteOffset, arg2.byteLength).set(getArrayU8FromWasm0(arg0, arg1));
+        },
         __wbg___wbindgen_throw_6ddd609b62940d55: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
@@ -170,9 +174,9 @@ function addToExternrefTable0(obj) {
     return idx;
 }
 
-function getArrayF32FromWasm0(ptr, len) {
+function getArrayU8FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
-    return getFloat32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
+    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
 }
 
 let cachedDataViewMemory0 = null;

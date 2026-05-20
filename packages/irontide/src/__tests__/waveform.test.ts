@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Mock AudioData
 function createMockAudioData(duration = 10) {
   return {
-    calculatePeaks: vi.fn().mockReturnValue(new Float32Array(20)),
+    calculatePeaksInto: vi.fn(),
     duration,
     sample_rate: 44100,
     len: duration * 44100,
@@ -64,9 +64,39 @@ describe('Waveform', () => {
       wf.destroy()
     })
 
+    it('reuses one Float32Array peaks buffer across renders', async () => {
+      const audioData = createMockAudioData(10)
+      mockLoadAudio.mockResolvedValue({ audioData })
+
+      // Give the canvas a nonzero clientWidth so render() reaches the peak calculation.
+      const realCreateElement = document.createElement.bind(document)
+      const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation(((tag: string) => {
+        const el = realCreateElement(tag)
+        if (tag === 'canvas') {
+          Object.defineProperty(el, 'clientWidth', { value: 800, configurable: true })
+        }
+        return el
+      }) as typeof document.createElement)
+
+      const wf = await Waveform.create({ container, src: 'test.mp3' })
+      wf.setCurrentTime(1)
+      wf.setCurrentTime(2)
+
+      const calls = audioData.calculatePeaksInto.mock.calls
+      expect(calls.length).toBeGreaterThan(1)
+      const firstBuffer = calls[0][3]
+      expect(firstBuffer).toBeInstanceOf(Float32Array)
+      for (const call of calls) {
+        expect(call[3]).toBe(firstBuffer)
+      }
+
+      wf.destroy()
+      createElementSpy.mockRestore()
+    })
+
     it('frees audio data and removes canvas if construction fails after load', async () => {
       const audioData = createMockAudioData(10)
-      audioData.calculatePeaks = vi.fn(() => { throw new Error('render boom') })
+      audioData.calculatePeaksInto = vi.fn(() => { throw new Error('render boom') })
       mockLoadAudio.mockResolvedValue({ audioData })
 
       // Force any canvas created by Waveform.create to have a nonzero clientWidth

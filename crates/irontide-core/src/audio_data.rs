@@ -64,33 +64,43 @@ impl AudioData {
         self.mono_mix.is_empty()
     }
 
-    /// Calculate peaks for waveform rendering.
-    /// Returns flat [min0, max0, min1, max1, ...] array.
-    #[wasm_bindgen(js_name = "calculatePeaks")]
-    pub fn calculate_peaks(
+    /// Calculate peaks for waveform rendering into a caller-owned buffer.
+    /// Writes flat [min0, max0, min1, max1, ...] into `out`. Callers reuse the
+    /// same Float32Array across renders to avoid per-call allocation.
+    /// Processes `min(pixels, out.len() / 2)` pixels.
+    #[wasm_bindgen(js_name = "calculatePeaksInto")]
+    pub fn calculate_peaks_into(
         &self,
         pixels: usize,
         start_sample: usize,
         end_sample: usize,
-    ) -> Vec<f32> {
+        out: &mut [f32],
+    ) {
+        let count = pixels.min(out.len() / 2);
+        if count == 0 {
+            return;
+        }
+
         let start = start_sample.min(self.mono_mix.len());
         let end = end_sample.min(self.mono_mix.len());
 
-        if start >= end || pixels == 0 {
-            return vec![0.0; pixels * 2];
+        if start >= end {
+            for slot in &mut out[..count * 2] {
+                *slot = 0.0;
+            }
+            return;
         }
 
         let samples_per_pixel = (end - start) as f64 / pixels as f64;
-        let mut peaks = Vec::with_capacity(pixels * 2);
 
-        for i in 0..pixels {
+        for i in 0..count {
             let seg_start = start + (i as f64 * samples_per_pixel) as usize;
             let seg_end = start + (((i + 1) as f64) * samples_per_pixel) as usize;
             let seg_end = seg_end.min(end);
 
             if seg_start >= seg_end {
-                peaks.push(0.0);
-                peaks.push(0.0);
+                out[i * 2] = 0.0;
+                out[i * 2 + 1] = 0.0;
                 continue;
             }
 
@@ -106,10 +116,8 @@ impl AudioData {
                 }
             }
 
-            peaks.push(min);
-            peaks.push(max);
+            out[i * 2] = min;
+            out[i * 2 + 1] = max;
         }
-
-        peaks
     }
 }

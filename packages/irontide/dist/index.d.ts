@@ -27,6 +27,7 @@ export declare class Waveform {
     private readonly minZoom;
     private readonly maxZoom;
     private _decoder;
+    private peaksBuffer;
     private constructor();
     static create(userOptions: WaveformOptions): Promise<Waveform>;
     on<K extends keyof WaveformEvents>(event: K, handler: (data: WaveformEvents[K]) => void): void;

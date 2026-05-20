@@ -5,10 +5,12 @@ export class AudioData {
     free(): void;
     [Symbol.dispose](): void;
     /**
-     * Calculate peaks for waveform rendering.
-     * Returns flat [min0, max0, min1, max1, ...] array.
+     * Calculate peaks for waveform rendering into a caller-owned buffer.
+     * Writes flat [min0, max0, min1, max1, ...] into `out`. Callers reuse the
+     * same Float32Array across renders to avoid per-call allocation.
+     * Processes `min(pixels, out.len() / 2)` pixels.
      */
-    calculatePeaks(pixels: number, start_sample: number, end_sample: number): Float32Array;
+    calculatePeaksInto(pixels: number, start_sample: number, end_sample: number, out: Float32Array): void;
     constructor(samples: Float32Array, sample_rate: number, channels: number);
     readonly channels: number;
     readonly duration: number;
@@ -25,16 +27,16 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly decodeAudio: (a: number, b: number, c: any) => [number, number, number];
-    readonly init_irontide: () => void;
     readonly __wbg_audiodata_free: (a: number, b: number) => void;
-    readonly audiodata_calculatePeaks: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly audiodata_calculatePeaksInto: (a: number, b: number, c: number, d: number, e: number, f: number, g: any) => void;
     readonly audiodata_channels: (a: number) => number;
     readonly audiodata_duration: (a: number) => number;
     readonly audiodata_is_empty: (a: number) => number;
     readonly audiodata_len: (a: number) => number;
     readonly audiodata_new: (a: number, b: number, c: number, d: number) => number;
     readonly audiodata_sample_rate: (a: number) => number;
+    readonly decodeAudio: (a: number, b: number, c: any) => [number, number, number];
+    readonly init_irontide: () => void;
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
