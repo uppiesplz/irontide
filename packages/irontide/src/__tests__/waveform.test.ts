@@ -63,6 +63,32 @@ describe('Waveform', () => {
 
       wf.destroy()
     })
+
+    it('frees audio data and removes canvas if construction fails after load', async () => {
+      const audioData = createMockAudioData(10)
+      audioData.calculatePeaks = vi.fn(() => { throw new Error('render boom') })
+      mockLoadAudio.mockResolvedValue({ audioData })
+
+      // Force any canvas created by Waveform.create to have a nonzero clientWidth
+      // so render() reaches calculatePeaks (which throws).
+      const realCreateElement = document.createElement.bind(document)
+      const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation(((tag: string) => {
+        const el = realCreateElement(tag)
+        if (tag === 'canvas') {
+          Object.defineProperty(el, 'clientWidth', { value: 800, configurable: true })
+        }
+        return el
+      }) as typeof document.createElement)
+
+      await expect(
+        Waveform.create({ container, src: 'test.mp3' })
+      ).rejects.toThrow('render boom')
+
+      expect(audioData.free).toHaveBeenCalled()
+      expect(container.querySelector('canvas')).toBeNull()
+
+      createElementSpy.mockRestore()
+    })
   })
 
   describe('load()', () => {

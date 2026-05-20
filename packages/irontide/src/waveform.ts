@@ -88,11 +88,16 @@ export class Waveform {
     canvas.style.width = '100%'
     container.appendChild(canvas)
 
+    let audioData: AudioData | null = null
+    let renderer: Renderer | null = null
+    let interaction: InteractionManager | null = null
+    let instance: Waveform | null = null
+
     try {
       // Create emitter early so loading events can be routed
       const emitter = new EventEmitter()
 
-      const renderer = new Renderer(canvas, {
+      renderer = new Renderer(canvas, {
         height: options.height,
         waveColor: options.waveColor,
         progressColor: options.progressColor,
@@ -106,14 +111,14 @@ export class Waveform {
         renderer.resize(rect.width)
       }
 
-      const interaction = new InteractionManager(canvas, {
+      interaction = new InteractionManager(canvas, {
         interact: options.interact,
         momentum: options.momentum,
         momentumDeceleration: options.momentumDeceleration,
       })
 
       // Load audio — route progress to both the onLoading callback and event emitter
-      const { audioData } = await loadAudio(
+      const result = await loadAudio(
         options.src,
         options.decoder,
         (progress: number, stage: LoadingStage) => {
@@ -124,15 +129,27 @@ export class Waveform {
           emitter.emit('warning', message)
         },
       )
+      audioData = result.audioData
 
-      const instance = new Waveform(
+      instance = new Waveform(
         container, canvas, renderer, interaction, audioData, emitter, options.decoder,
       )
 
       emitter.emit('ready', undefined)
       return instance
     } catch (error) {
-      container.removeChild(canvas)
+      if (instance) {
+        instance.destroy()
+      } else {
+        if (audioData && typeof audioData.free === 'function') {
+          audioData.free()
+        }
+        interaction?.destroy()
+        renderer?.destroy()
+        if (canvas.parentElement) {
+          canvas.parentElement.removeChild(canvas)
+        }
+      }
       throw error
     }
   }
