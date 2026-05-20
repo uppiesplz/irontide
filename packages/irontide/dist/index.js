@@ -1,7 +1,7 @@
 var L = Object.defineProperty;
 var X = (r, t, e) => t in r ? L(r, t, { enumerable: !0, configurable: !0, writable: !0, value: e }) : r[t] = e;
 var o = (r, t, e) => X(r, typeof t != "symbol" ? t + "" : t, e);
-class E {
+class S {
   constructor() {
     o(this, "listeners", /* @__PURE__ */ new Map());
   }
@@ -14,7 +14,13 @@ class E {
   }
   emit(t, e) {
     var i;
-    (i = this.listeners.get(t)) == null || i.forEach((s) => s(e));
+    (i = this.listeners.get(t)) == null || i.forEach((s) => {
+      try {
+        s(e);
+      } catch (n) {
+        console.error(`[irontide] handler for "${t}" threw:`, n);
+      }
+    });
   }
   removeAll() {
     this.listeners.clear();
@@ -46,24 +52,24 @@ class z {
     return { barWidth: i, gap: s, totalBarWidth: n };
   }
   render(t, e, i, s) {
-    const n = this.ctx, a = this.canvas.clientWidth, l = this.options.height, u = l / 2;
-    if (n.clearRect(0, 0, a, l), t.length === 0 || s === 0) return;
-    const { barWidth: m, totalBarWidth: h } = this.calculateBarDimensions(a, a), c = Math.floor(a / h), v = t.length / 2;
+    const n = this.ctx, a = this.canvas.clientWidth, c = this.options.height, l = c / 2;
+    if (n.clearRect(0, 0, a, c), t.length === 0 || s === 0) return;
+    const { barWidth: d, totalBarWidth: h } = this.calculateBarDimensions(a, a), m = Math.floor(a / h), f = t.length / 2;
     n.fillStyle = this.options.waveColor;
-    for (let d = 0; d < c && d < v; d++) {
-      const P = t[d * 2], y = t[d * 2 + 1], x = d * h, M = u - y * u, D = u - P * u, W = Math.max(1, D - M);
-      n.fillRect(x, M, m, W);
+    for (let u = 0; u < m && u < f; u++) {
+      const P = t[u * 2], x = t[u * 2 + 1], T = u * h, b = l - x * l, D = l - P * l, W = Math.max(1, D - b);
+      n.fillRect(T, b, d, W);
     }
-    const { start: f, end: p } = e, b = p - f, w = b > 0 ? (i - f) / b : 0, g = Math.max(0, Math.min(a, w * a));
-    if (g > 0) {
-      n.save(), n.beginPath(), n.rect(0, 0, g, l), n.clip(), n.fillStyle = this.options.progressColor;
-      for (let d = 0; d < c && d < v; d++) {
-        const P = t[d * 2], y = t[d * 2 + 1], x = d * h, M = u - y * u, D = u - P * u, W = Math.max(1, D - M);
-        n.fillRect(x, M, m, W);
+    const { start: v, end: w } = e, g = w - v, p = g > 0 ? (i - v) / g : 0, M = Math.max(0, Math.min(a, p * a));
+    if (M > 0) {
+      n.save(), n.beginPath(), n.rect(0, 0, M, c), n.clip(), n.fillStyle = this.options.progressColor;
+      for (let u = 0; u < m && u < f; u++) {
+        const P = t[u * 2], x = t[u * 2 + 1], T = u * h, b = l - x * l, D = l - P * l, W = Math.max(1, D - b);
+        n.fillRect(T, b, d, W);
       }
       n.restore();
     }
-    g > 0 && g < a && (n.fillStyle = this.options.progressColor, n.fillRect(Math.round(g) - 0.5, 0, 1, l));
+    M > 0 && M < a && (n.fillStyle = this.options.progressColor, n.fillRect(Math.round(M) - 0.5, 0, 1, c));
   }
   destroy() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -73,7 +79,7 @@ class A {
   constructor(t, e) {
     o(this, "canvas");
     o(this, "options");
-    o(this, "emitter", new E());
+    o(this, "emitter", new S());
     o(this, "enabled");
     o(this, "rafId", null);
     o(this, "momentumRafId", null);
@@ -186,23 +192,23 @@ class A {
     this.momentumRafId !== null && (cancelAnimationFrame(this.momentumRafId), this.momentumRafId = null), this.velocity = 0;
   }
 }
-let T = null, _ = null, C = !1;
-async function S() {
-  return _ || (T || (T = (async () => {
+let y = null, _ = null, C = !1;
+async function E() {
+  return _ || (y || (y = (async () => {
     try {
-      const r = await import("./irontide_core-CeTvVXFH.js"), t = r.default;
+      const r = await import("./irontide_core-C7ptLPPE.js"), t = r.default;
       return await t(), r.init_irontide(), _ = r, C = !0, r;
     } catch (r) {
-      throw T = null, C = !1, r;
+      throw y = null, C = !1, r;
     }
-  })()), T);
+  })()), y);
 }
 function B(r) {
   return r === "wasm" ? "wasm" : r === "web" ? "web" : C ? "wasm" : "web";
 }
-async function R(r, t, e, i) {
-  const s = (h, c) => {
-    e == null || e(h, c);
+async function I(r, t, e, i) {
+  const s = (h, m) => {
+    e == null || e(h, m);
   };
   s(0, "downloading");
   const n = await fetch(r);
@@ -212,39 +218,39 @@ async function R(r, t, e, i) {
     s(h * 25, "downloading");
   });
   s(25, "downloading");
-  let l = t;
+  let c = t;
   if (t === "auto")
     try {
-      await S(), l = "wasm";
+      await E(), c = "wasm";
     } catch {
-      i == null || i("WASM initialization failed, falling back to Web Audio API"), l = "web";
+      i == null || i("WASM initialization failed, falling back to Web Audio API"), c = "web";
     }
-  const u = B(l);
+  const l = B(c);
   s(25, "decoding");
-  let m;
-  if (u === "wasm") {
-    const h = await S(), c = new Uint8Array(a);
-    m = h.decodeAudio(c, (v) => {
-      s(25 + v * 35, "decoding");
+  let d;
+  if (l === "wasm") {
+    const h = await E(), m = new Uint8Array(a);
+    d = h.decodeAudio(m, (f) => {
+      s(25 + f * 35, "decoding");
     }), s(60, "decoding");
   } else {
     const h = new AudioContext();
     try {
-      const c = await h.decodeAudioData(a.slice(0));
+      const m = await h.decodeAudioData(a.slice(0));
       s(60, "decoding"), s(60, "processing");
-      const v = await S(), f = c.numberOfChannels, p = c.length, b = new Float32Array(p * f);
-      for (let w = 0; w < f; w++) {
-        const g = c.getChannelData(w);
-        for (let d = 0; d < p; d++)
-          b[d * f + w] = g[d];
-        s(60 + (w + 1) / f * 30, "processing");
+      const f = await E(), v = m.numberOfChannels, w = m.length, g = new Float32Array(w * v);
+      for (let p = 0; p < v; p++) {
+        const M = m.getChannelData(p);
+        for (let u = 0; u < w; u++)
+          g[u * v + p] = M[u];
+        s(60 + (p + 1) / v * 30, "processing");
       }
-      m = new v.AudioData(b, c.sampleRate, f);
+      d = new f.AudioData(g, m.sampleRate, v);
     } finally {
       await h.close();
     }
   }
-  return s(100, "ready"), { audioData: m };
+  return s(100, "ready"), { audioData: d };
 }
 async function O(r, t) {
   const e = r.headers.get("content-length");
@@ -255,15 +261,15 @@ async function O(r, t) {
   const i = parseInt(e, 10), s = r.body.getReader(), n = [];
   let a = 0;
   for (; ; ) {
-    const { done: h, value: c } = await s.read();
+    const { done: h, value: m } = await s.read();
     if (h) break;
-    n.push(c), a += c.length, t(i > 0 ? a / i : 0);
+    n.push(m), a += m.length, t(i > 0 ? a / i : 0);
   }
-  const l = new ArrayBuffer(a), u = new Uint8Array(l);
-  let m = 0;
+  const c = new ArrayBuffer(a), l = new Uint8Array(c);
+  let d = 0;
   for (const h of n)
-    u.set(h, m), m += h.length;
-  return l;
+    l.set(h, d), d += h.length;
+  return c;
 }
 const k = {
   decoder: "auto",
@@ -277,9 +283,9 @@ const k = {
   momentumDeceleration: 0.95,
   onLoading: void 0
 };
-class I {
-  constructor(t, e, i, s, n, a, l) {
-    o(this, "emitter", new E());
+class R {
+  constructor(t, e, i, s, n, a, c) {
+    o(this, "emitter", new S());
     o(this, "renderer");
     o(this, "interaction");
     o(this, "audioData");
@@ -295,7 +301,7 @@ class I {
     o(this, "minZoom", 1);
     o(this, "maxZoom", 1e3);
     o(this, "_decoder", "auto");
-    this.container = t, this.canvas = e, this.renderer = i, this.interaction = s, this.audioData = n, this.emitter = a, this._duration = n.duration, this._decoder = l, this.wireInteraction(), this.setupResizeHandling(), this.render();
+    this.container = t, this.canvas = e, this.renderer = i, this.interaction = s, this.audioData = n, this.emitter = a, this._duration = n.duration, this._decoder = c, this.wireInteraction(), this.setupResizeHandling(), this.render();
   }
   static async create(t) {
     const e = { ...k, ...t }, i = typeof e.container == "string" ? document.querySelector(e.container) : e.container;
@@ -305,41 +311,42 @@ class I {
       );
     const s = document.createElement("canvas");
     s.style.display = "block", s.style.width = "100%", i.appendChild(s);
+    let n = null, a = null, c = null, l = null;
     try {
-      const n = new E(), a = new z(s, {
+      const d = new S();
+      a = new z(s, {
         height: e.height,
         waveColor: e.waveColor,
         progressColor: e.progressColor,
         barWidth: e.barWidth,
         barGap: e.barGap
-      }), l = i.getBoundingClientRect();
-      l.width > 0 && a.resize(l.width);
-      const u = new A(s, {
+      });
+      const h = i.getBoundingClientRect();
+      return h.width > 0 && a.resize(h.width), c = new A(s, {
         interact: e.interact,
         momentum: e.momentum,
         momentumDeceleration: e.momentumDeceleration
-      }), { audioData: m } = await R(
+      }), n = (await I(
         e.src,
         e.decoder,
-        (c, v) => {
-          var f;
-          (f = e.onLoading) == null || f.call(e, c, v), n.emit("loading", { progress: c, stage: v });
+        (f, v) => {
+          var w;
+          (w = e.onLoading) == null || w.call(e, f, v), d.emit("loading", { progress: f, stage: v });
         },
-        (c) => {
-          n.emit("warning", c);
+        (f) => {
+          d.emit("warning", f);
         }
-      ), h = new I(
+      )).audioData, l = new R(
         i,
         s,
         a,
-        u,
-        m,
+        c,
         n,
+        d,
         e.decoder
-      );
-      return n.emit("ready", void 0), h;
-    } catch (n) {
-      throw i.removeChild(s), n;
+      ), d.emit("ready", void 0), l;
+    } catch (d) {
+      throw l ? l.destroy() : (n && typeof n.free == "function" && n.free(), c == null || c.destroy(), a == null || a.destroy(), s.parentElement && s.parentElement.removeChild(s)), d;
     }
   }
   // --- Events ---
@@ -351,7 +358,7 @@ class I {
   }
   // --- Public methods ---
   setCurrentTime(t) {
-    this._currentTime = Math.max(0, Math.min(this._duration, t)), this.autoScrollToPlayhead(), this.render();
+    this._currentTime = Math.max(0, Math.min(this._duration, t)), this.render();
   }
   getCurrentTime() {
     return this._currentTime;
@@ -385,6 +392,19 @@ class I {
   setScrollPosition(t) {
     this._scrollPosition = Math.max(0, Math.min(1, t)), this.render(), this.emitter.emit("scroll", this._scrollPosition);
   }
+  /**
+   * Set scroll offset in pixels (bypasses 0-1 normalization).
+   * Use this when syncing to an external scroll container's scrollLeft.
+   */
+  setScrollOffset(t) {
+    const e = this.getTotalWidth(), i = this.canvas.clientWidth;
+    if (e <= i) {
+      this._scrollPosition = 0, this.render();
+      return;
+    }
+    const s = e - i;
+    this._scrollPosition = Math.max(0, Math.min(1, t / s)), this.render(), this.emitter.emit("scroll", this._scrollPosition);
+  }
   getScrollPosition() {
     return this._scrollPosition;
   }
@@ -393,7 +413,7 @@ class I {
   }
   async load(t) {
     this.audioData && typeof this.audioData.free == "function" && this.audioData.free();
-    const { audioData: e } = await R(
+    const { audioData: e } = await I(
       t,
       this._decoder,
       (i, s) => {
@@ -445,20 +465,16 @@ class I {
       t > 0 && (this.renderer.resize(t), this.render());
     }), this.resizeObserver.observe(this.container));
   }
-  autoScrollToPlayhead() {
-    const { start: t, end: e } = this.getVisibleTimeRange(), i = (e - t) * 0.1;
-    (this._currentTime < t + i || this._currentTime > e - i) && this.scrollToTime(this._currentTime);
-  }
   render() {
     const t = this.canvas.clientWidth;
     if (t <= 0 || !this.audioData) return;
-    const { start: e, end: i } = this.getVisibleTimeRange(), s = this.audioData.sample_rate, n = Math.floor(e * s), a = Math.min(this.audioData.len, Math.ceil(i * s)), l = this.getTotalWidth(), { totalBarWidth: u } = this.renderer.calculateBarDimensions(t, l), m = Math.floor(t / u);
-    if (m <= 0 || a <= n) return;
-    const h = this.audioData.calculatePeaks(m, n, a);
+    const { start: e, end: i } = this.getVisibleTimeRange(), s = this.audioData.sample_rate, n = Math.floor(e * s), a = Math.min(this.audioData.len, Math.ceil(i * s)), c = this.getTotalWidth(), { totalBarWidth: l } = this.renderer.calculateBarDimensions(t, c), d = Math.floor(t / l);
+    if (d <= 0 || a <= n) return;
+    const h = this.audioData.calculatePeaks(d, n, a);
     this.renderer.render(h, { start: e, end: i }, this._currentTime, this._duration);
   }
 }
 export {
-  I as Waveform,
-  S as initIrontide
+  R as Waveform,
+  E as initIrontide
 };

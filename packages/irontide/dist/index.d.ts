@@ -44,6 +44,11 @@ export declare class Waveform {
     zoomOut(factor?: number): void;
     scrollToTime(time: number): void;
     setScrollPosition(position: number): void;
+    /**
+     * Set scroll offset in pixels (bypasses 0-1 normalization).
+     * Use this when syncing to an external scroll container's scrollLeft.
+     */
+    setScrollOffset(offsetPixels: number): void;
     getScrollPosition(): number;
     setInteraction(enabled: boolean): void;
     load(src: string): Promise<void>;
@@ -54,7 +59,6 @@ export declare class Waveform {
     private getVisibleTimeRange;
     private wireInteraction;
     private setupResizeHandling;
-    private autoScrollToPlayhead;
     private render;
 }
 
